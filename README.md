@@ -35,3 +35,42 @@ Every tool in the directory is categorized, tagged, and described in plain langu
 ## The idea in one line
 
 Neural is the front door to the AI ecosystem — opinionated enough to be useful, neutral enough to be trusted.
+
+## Local development
+
+This is a monorepo with a `backend` (Express + MongoDB) and a `frontend` (Vite + React). The root `package.json` wires both together so you can run everything with one command.
+
+### Prerequisites
+
+- Node.js 18+
+- A MongoDB instance (local `mongodb://127.0.0.1:27017` or a connection string)
+
+### Setup
+
+```bash
+# install root, backend, and frontend dependencies
+npm run setup
+
+# create the backend env file and fill in your values
+cp backend/.env.example backend/.env
+```
+
+### Run
+
+```bash
+# start backend (http://localhost:5000) and frontend (http://localhost:5173) together
+npm run dev
+```
+
+The Vite dev server proxies `/api` to the backend, so the frontend talks to it with no extra config.
+
+### Other scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Run backend + frontend concurrently |
+| `npm run dev:backend` | Run only the backend (nodemon) |
+| `npm run dev:frontend` | Run only the frontend (Vite) |
+| `npm run seed` | Seed the database with sample tools |
+| `npm run build` | Build the frontend for production |
+| `npm start` | Run the backend in production mode |
