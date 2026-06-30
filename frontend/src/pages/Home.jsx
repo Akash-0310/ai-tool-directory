@@ -156,6 +156,11 @@ export default function Home() {
   const [pricing, setPricing] = useState('');
   const [sort, setSort] = useState('rating');
 
+  const PER_PAGE = 12;
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+
   useEffect(() => {
     api.get('/tools/featured').then((r) => setFeatured(r.data.data || [])).catch(() => {});
     api
@@ -171,6 +176,11 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
+  // Reset to the first page whenever the filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [query, category, pricing, sort]);
+
   useEffect(() => {
     setLoading(true);
     const controller = new AbortController();
@@ -182,11 +192,14 @@ export default function Home() {
             category: category === 'All' ? undefined : category,
             pricing: pricing || undefined,
             sort,
-            limit: 60,
+            page,
+            limit: PER_PAGE,
           },
           signal: controller.signal,
         });
         setTools(res.data.data || []);
+        setTotal(res.data.total ?? (res.data.data || []).length);
+        setPages(res.data.pages || 1);
       } catch (_) {
         // swallow — keep last state
       } finally {
@@ -198,7 +211,7 @@ export default function Home() {
       controller.abort();
       clearTimeout(id);
     };
-  }, [query, category, pricing, sort]);
+  }, [query, category, pricing, sort, page]);
 
   useEffect(() => {
     const next = new URLSearchParams();
@@ -219,6 +232,28 @@ export default function Home() {
   const jumpToDirectory = () => {
     document.getElementById('directory')?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  const goToPage = (p) => {
+    const next = Math.min(Math.max(p, 1), pages);
+    if (next === page) return;
+    setPage(next);
+    jumpToDirectory();
+  };
+
+  // Compact page list with ellipses, e.g. 1 … 4 5 [6] 7 8 … 12
+  const pageItems = useMemo(() => {
+    if (pages <= 1) return [];
+    const items = new Set([1, pages, page, page - 1, page + 1]);
+    const sorted = [...items].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+    const out = [];
+    let prev = 0;
+    for (const n of sorted) {
+      if (n - prev > 1) out.push(`gap-${n}`);
+      out.push(n);
+      prev = n;
+    }
+    return out;
+  }, [page, pages]);
 
   return (
     <>
@@ -414,13 +449,61 @@ export default function Home() {
               <p>Try different keywords, or clear the filters above.</p>
             </div>
           ) : (
-            <div className="tools-grid">
-              {tools.map((t) => <ToolCard key={t._id || t.slug} tool={t} />)}
-            </div>
+            <>
+              <div className="tools-grid">
+                {tools.map((t) => <ToolCard key={t._id || t.slug} tool={t} />)}
+              </div>
+
+              {pages > 1 && (
+                <nav className="pagination" aria-label="Directory pages">
+                  <button
+                    className="page-btn"
+                    onClick={() => goToPage(page - 1)}
+                    disabled={page <= 1}
+                    aria-label="Previous page"
+                  >
+                    Prev
+                  </button>
+
+                  {pageItems.map((it) =>
+                    typeof it === 'number' ? (
+                      <button
+                        key={it}
+                        className={`page-btn${it === page ? ' is-active' : ''}`}
+                        onClick={() => goToPage(it)}
+                        aria-current={it === page ? 'page' : undefined}
+                      >
+                        {it}
+                      </button>
+                    ) : (
+                      <span key={it} className="page-gap">…</span>
+                    )
+                  )}
+
+                  <button
+                    className="page-btn"
+                    onClick={() => goToPage(page + 1)}
+                    disabled={page >= pages}
+                    aria-label="Next page"
+                  >
+                    Next
+                  </button>
+                </nav>
+              )}
+            </>
           )}
 
           <Reveal className="directory-count">
-            <p>Showing <strong>{tools.length}</strong> tools · updated every Sunday.</p>
+            <p>
+              {total > 0 ? (
+                <>
+                  Showing <strong>{(page - 1) * PER_PAGE + 1}–{(page - 1) * PER_PAGE + tools.length}</strong>{' '}
+                  of <strong>{total}</strong> tools · updated every Sunday.
+                </>
+              ) : (
+                <>Showing <strong>0</strong> tools · updated every Sunday.</>
+              )}
+            </p>
           </Reveal>
         </div>
       </section>

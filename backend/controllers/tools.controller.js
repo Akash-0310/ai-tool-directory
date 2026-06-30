@@ -24,7 +24,18 @@ const matchQuery = (tool, { q, category, pricing }) => {
 
 exports.listTools = async (req, res, next) => {
   try {
-    const { q, category, pricing, sort = 'rating', limit = 50 } = req.query;
+    const { q, category, pricing, sort = 'rating' } = req.query;
+
+    const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 60);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const skip = (page - 1) * limit;
+
+    const pageMeta = (total) => ({
+      total,
+      page,
+      limit,
+      pages: Math.max(Math.ceil(total / limit), 1),
+    });
 
     if (isDBConnected()) {
       const filter = {};
@@ -39,8 +50,11 @@ exports.listTools = async (req, res, next) => {
       }
       const sortObj =
         sort === 'newest' ? { createdAt: -1 } : sort === 'name' ? { name: 1 } : { rating: -1 };
-      const data = await Tool.find(filter).sort(sortObj).limit(Number(limit));
-      return res.json({ success: true, count: data.length, data });
+      const [data, total] = await Promise.all([
+        Tool.find(filter).sort(sortObj).skip(skip).limit(limit),
+        Tool.countDocuments(filter),
+      ]);
+      return res.json({ success: true, count: data.length, ...pageMeta(total), data });
     }
 
     // In-memory fallback
@@ -48,7 +62,9 @@ exports.listTools = async (req, res, next) => {
     if (sort === 'newest') data = [...data].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     else if (sort === 'name') data = [...data].sort((a, b) => a.name.localeCompare(b.name));
     else data = [...data].sort((a, b) => b.rating - a.rating);
-    return res.json({ success: true, count: data.length, data: data.slice(0, Number(limit)) });
+    const total = data.length;
+    const paged = data.slice(skip, skip + limit);
+    return res.json({ success: true, count: paged.length, ...pageMeta(total), data: paged });
   } catch (err) {
     next(err);
   }
