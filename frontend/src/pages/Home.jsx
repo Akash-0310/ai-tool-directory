@@ -367,9 +367,16 @@ export default function Home() {
                   className="category-card"
                   onClick={() => { setCategory(c.name); jumpToDirectory(); }}
                 >
-                  <div className="category-card-icon">{c.icon}</div>
-                  <h4>{c.name}</h4>
-                  <p>{c.count || '—'} tools</p>
+                  <div className="category-card-top">
+                    <span className="category-card-icon">{c.icon}</span>
+                    <FiArrowUpRight className="category-card-arrow" />
+                  </div>
+                  <div className="category-card-body">
+                    <h4>{c.name}</h4>
+                    <p>
+                      <span className="category-card-count">{c.count || '—'}</span> tools
+                    </p>
+                  </div>
                 </button>
               </Reveal>
             ))}
